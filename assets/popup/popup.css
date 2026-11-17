@@ -1,0 +1,261 @@
+/* ───────── 立體書（單獨一頁：demo/立體書.html） ─────────
+   場景用同一套座標（原圖 px）：書頁寬 1175、高 762（上面 120 是天空），
+   外層 .scaler 再依容器寬度整個縮放。
+   光線濾鏡只放在 .lit（葉節點）上，不能放在 preserve-3d 的容器上。 */
+:root{
+  --bg:#f1ebe2; --lit:none; --rear:sepia(.25) brightness(.93);
+  --ink:#1a1816; --ink-soft:#5d5852; --paper:#fbf8f1;
+  --book-navy:#262a36; --page:#fbf8f1;
+}
+.stage[data-time="night"]{--bg:#16171c; --lit:brightness(.5) sepia(.3); --rear:sepia(.3) brightness(.45); --ink:#f3ecdf; --ink-soft:#b3ada1; --paper:#16171c}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+.stage{
+  position:relative;min-height:100vh;min-height:100svh;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 0 26px;
+  background:var(--bg);color:var(--ink);transition:background-color .7s,color .7s;
+}
+.lit{filter:var(--lit)}
+/* 夜晚：站在店前的紙卡（動物、女孩、櫃台、路上的東西）被店裡的燈照到，不要暗成剪影 */
+.stage[data-time="night"] .pcard .lit{filter:brightness(.86) sepia(.3) saturate(1.15)}
+.stage[data-time="night"] .pcard[data-layer="awning"] .lit{filter:brightness(.66) sepia(.3)}
+
+/* ── 版面：書置中，下面一行小字和時段 ── */
+.clock{position:absolute;right:24px;top:18px;font-size:12px;letter-spacing:.2em;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hero-book{position:relative;width:min(96vw, 1180px, (100vh - 210px) * 1500 / 1070);width:min(96vw, 1180px, (100svh - 210px) * 1500 / 1070)}
+.pop{position:relative;width:100%;aspect-ratio:1500/1070;touch-action:pan-y}
+.scaler{position:absolute;left:0;top:0;width:1500px;height:1070px;transform-origin:0 0;transform:scale(var(--k,.6))}
+.persp{position:absolute;inset:0;perspective:3200px;perspective-origin:50% 36%}
+.seen{position:relative;z-index:4;margin:6px 0 0;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-size:13px;letter-spacing:.16em;color:var(--ink-soft)}
+.seen b{font-weight:500;color:var(--ink)}
+.replay{background:none;border:1.5px solid var(--ink);color:var(--ink);border-radius:99px;font-size:12px;letter-spacing:.16em;padding:3px 13px 4px 15px;white-space:nowrap;transition:transform .3s cubic-bezier(.2,.9,.25,1.4),background-color .25s,color .25s}
+.replay:hover{background:var(--ink);color:var(--paper);transform:rotate(-2deg)}
+.seen{min-height:2.6em;text-align:center;line-height:1.6}
+.pager{position:relative;z-index:4;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;color:var(--ink)}
+.pages{display:flex;gap:8px}
+.pages button{min-width:30px;height:30px;border-radius:99px;border:1.6px solid var(--ink);background:none;padding:0 4px;font-size:13px;font-variant-numeric:tabular-nums;transition:background-color .3s,color .3s,transform .3s}
+.pages button[aria-current="true"]{background:var(--ink);color:var(--paper)}
+.pages button:hover{transform:translateY(-2px)}
+.pager .arrow:disabled{opacity:.25;cursor:default}
+.times{position:relative;z-index:4;display:flex;align-items:center;justify-content:center;gap:13px;margin-top:12px;color:var(--ink)}
+.times .dot{width:12px;aspect-ratio:1;border-radius:50%;border:1.6px solid var(--ink);background:none;padding:0;transition:background-color .3s,transform .3s}
+.times .dot[aria-pressed="true"]{background:var(--ink)}
+.times .dot:hover{transform:scale(1.25)}
+.times .now{font-size:12px;letter-spacing:.22em;color:var(--ink-soft);min-width:3.2em}
+.arrow{width:34px;aspect-ratio:1;background:none;border:0;padding:0;color:var(--ink);transition:transform .3s cubic-bezier(.2,.9,.25,1.4)}
+.arrow svg{width:11px;display:block;margin:auto;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#page-prev:not(:disabled):hover{transform:translateX(-4px)}
+#page-next:not(:disabled):hover{transform:translateX(4px)}
+:is(.arrow,.dot,.replay,.pages button):focus-visible{outline:2px dashed var(--ink);outline-offset:3px}
+
+/* 層架上的作品、櫃台上的龍蝦（按鈕本身） */
+.work,.egg{background:none;border:0;padding:0;margin:0;outline:none}
+.work{transform-origin:50% 100%;transition:transform .4s cubic-bezier(.2,.9,.25,1.3)}
+.work:is(:hover,:focus-visible){transform:translateY(-4%) scale(1.08);animation:wiggle .9s ease-in-out infinite}
+@keyframes wiggle{0%,100%{rotate:-2.5deg}50%{rotate:2.5deg}}
+.egg img{display:block;width:100%;pointer-events:none}
+.egg.found{animation:jump .8s cubic-bezier(.2,.9,.25,1.3)}
+@keyframes jump{0%,100%{transform:none}40%{transform:translateY(-22%) scale(1.1)}}
+
+/* ── 3D 書 ── */
+.book,.bp,.pcard{transform-style:preserve-3d}
+.book{position:absolute;left:162.5px;top:548px;width:1175px;height:762px;transform-origin:50% 30%;will-change:transform}
+.book *{user-select:none;-webkit-user-drag:none}
+
+/* 桌面上的陰影 */
+.sh-soft{position:absolute;inset:-6px -14px -18px;border-radius:30px;background:rgba(58,42,24,.34);filter:blur(30px);transform:translateZ(-30px);pointer-events:none;transition:opacity .7s}
+.sh-cast{
+  position:absolute;left:0;top:-640px;width:1175px;height:640px;transform-origin:0 100%;pointer-events:none;
+  background:linear-gradient(to top,rgba(52,38,22,.34),rgba(52,38,22,.12) 55%,rgba(52,38,22,0));filter:blur(14px);opacity:0;
+}
+.stage[data-time="night"] :is(.sh-soft,.sh-cast){filter:blur(30px) brightness(0)}
+
+/* 前頁（平放，當地面）＋書的厚度 */
+.board{position:absolute;inset:-7px;border-radius:7px;background:var(--book-navy);transform:translateZ(-27px)}
+.front{position:absolute;inset:0;overflow:hidden}
+.front .paper,.bp-front .paper,.turner .paper{position:absolute;inset:0;background:var(--page)}
+.wall,.floor{position:absolute;inset:0}
+.wall[hidden],.floor[hidden]{display:none}
+.wall > svg,.floor > svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
+.turner{position:absolute;inset:0;transform-origin:50% 0;transform-style:preserve-3d;visibility:hidden;pointer-events:none}
+.turner > div{position:absolute;inset:0;backface-visibility:hidden;overflow:hidden}
+.turner .td{transform:rotateX(180deg)}
+.ttl{fill:#1a1816;font:500 38px "Noto Sans TC","PingFang TC",sans-serif;letter-spacing:.16em}
+.big{fill:#1a1816;font:500 92px "Noto Sans TC","PingFang TC",sans-serif}
+.floor .contact{position:absolute;left:0;right:0;top:0;height:150px;background:linear-gradient(rgba(70,52,30,.2),rgba(70,52,30,0))}
+.ink{fill:none;stroke:#1a1816;stroke-width:6.5;stroke-linecap:round;stroke-linejoin:round}
+.ink.thin{stroke-width:4.5}
+.ink.fat{stroke-width:9}
+.edge{position:absolute;background:
+  linear-gradient(to bottom,transparent 21px,var(--book-navy) 21px),
+  repeating-linear-gradient(to bottom,#f6f1e6 0 2px,#d6cebf 2px 3.4px)}
+.edge.e-front{left:0;top:762px;width:1175px;height:27px;transform-origin:50% 0;transform:rotateX(-90deg)}
+.edge.e-side{top:0;width:27px;height:762px;transform-origin:0 50%;transform:rotateY(90deg);background:
+  linear-gradient(to right,transparent 21px,var(--book-navy) 21px),
+  repeating-linear-gradient(to right,#f6f1e6 0 2px,#d6cebf 2px 3.4px)}
+.edge.e-l{left:0}
+.edge.e-r{left:1175px}
+
+/* 後頁（立起來當牆面）；背面是封面 */
+.bp{position:absolute;left:0;top:-762px;width:1175px;height:762px;transform-origin:50% 100%;transform:translateZ(2px) rotateX(-180deg)}
+.bp-front{position:absolute;inset:0;backface-visibility:hidden;overflow:hidden}
+.wall .shop{position:absolute;left:40px;top:120px;width:1095px;height:642px;display:block}
+.bp-board{position:absolute;inset:-7px -7px 0;border-radius:7px 7px 0 0;background:var(--book-navy);transform:translateZ(-1px)}
+.bp-cover{
+  position:absolute;inset:-7px -7px 0;border-radius:7px 7px 0 0;background:var(--book-navy);
+  transform:translateZ(-2px) rotateX(180deg);backface-visibility:hidden;
+  display:grid;place-items:center;
+  box-shadow:inset 0 46px 0 -1px #1f222c, inset 0 49px 0 -1px rgba(255,255,255,.06);
+}
+.label{
+  width:64%;background:var(--page);border-radius:10px;padding:44px 40px 38px;text-align:center;
+  box-shadow:0 0 0 3px var(--page), 0 0 0 5px #1a1816, 0 0 0 16px var(--page);
+}
+.label .lg{display:block;width:88%;margin:0 auto}
+.label p{margin:26px 0 0;font:500 30px/1.4 "Noto Sans TC","PingFang TC",sans-serif;letter-spacing:.3em;color:#1a1816;text-indent:.3em}
+.label .lb{display:block;width:64px;margin:20px auto 0}
+
+/* 天空的小塗鴉 */
+.sky .sun,.sky-night{transition:opacity .4s}
+.sky-night{opacity:0}
+.stage[data-time="night"] .sky .sun{opacity:0}
+.stage[data-time="night"] .sky-night{opacity:1;filter:drop-shadow(0 0 7px rgba(255,226,150,.75))}
+.sky-night .moon{fill:#f8e9b6;stroke:none}
+.sky-night .star{fill:none;stroke:#f8e9b6;stroke-width:4;stroke-linecap:round}
+
+/* 夜晚：店內的暖黃光，灑到前頁地面（color-dodge：紙變亮、黑線不變） */
+.glow,.spill{position:absolute;inset:0;opacity:0;transition:opacity .6s;mix-blend-mode:color-dodge;pointer-events:none}
+.glow{background:
+  radial-gradient(ellipse 30% 44% at 30% 66%,#b98a3c,#5d431a 55%,#000 100%),
+  radial-gradient(ellipse 24% 44% at 73% 66%,#b98a3c,#5d431a 55%,#000 100%);background-blend-mode:screen;background-color:#000}
+.spill{background:radial-gradient(ellipse 46% 42% at 50% 0,#a37a36,#3d2c12 60%,#000 100%),radial-gradient(ellipse 15% 17% at 95.5% 57%,#a37a36,#3d2c12 55%,#000 100%);background-blend-mode:screen;background-color:#000}
+.glow.room{background:radial-gradient(ellipse 40% 50% at 50% 55%,#a37a36,#4a3515 55%,#000 100%)}
+.spill.room{background:radial-gradient(ellipse 50% 46% at 50% 0,#8f6b2f,#35260f 60%,#000 100%)}
+.stage[data-time="night"] :is(.glow,.spill){opacity:1}
+
+/* 立起來的紙卡：底邊固定在前頁的 depth 位置，以底邊為軸 */
+.pcard{position:absolute;transform-origin:50% 100%;transform:translateZ(.6px) rotateX(-180deg);pointer-events:none;visibility:hidden}
+.pcard .face{position:absolute;inset:0;backface-visibility:hidden}
+.pcard.clip .face{overflow:hidden}
+.pcard .face img.piece{position:absolute;left:0;top:0;display:block}
+.pcard .rear{position:absolute;left:0;top:0;display:block;backface-visibility:hidden;transform:rotateY(180deg);filter:brightness(0) invert(1) var(--rear)}
+.pcard.animal,.pcard.flow{display:block}
+.pcard:is(.animal,.flow) .face{position:relative;inset:auto;display:block}
+.pcard:is(.animal,.flow) .leg{display:block}
+.pcard.flow .face > :is(img,svg){display:block;width:100%}
+.pcard.flow .face{position:relative}
+.pcard.flow .rear{width:100%}
+.pcard.flow svg{overflow:visible}
+/* 還沒有圖的位置：虛線框＋名稱 */
+.ph rect{fill:var(--page);stroke:#1a1816;stroke-width:4;stroke-dasharray:14 12;stroke-linecap:round}
+.ph text{fill:#1a1816;font:500 20px "Noto Sans TC","PingFang TC",sans-serif;letter-spacing:.1em;text-anchor:middle}
+.ph .sub{font-size:14px;fill:#5d5852;letter-spacing:.06em}
+.pcard .work{position:relative;display:block;width:100%;pointer-events:auto;z-index:auto}
+.pcard .work > :is(img,svg){display:block;width:100%;height:auto;transform-origin:50% 100%}
+.work.hop > :is(img,svg){animation:hop .6s cubic-bezier(.3,0,.3,1)}
+/* 前頁上的小東西（立牌、盆栽、路燈、貓、龍蝦）：SVG 畫的 die-cut 紙卡 */
+.pcard.prop .face > svg,.pcard.prop .rear{display:block;width:100%;height:100%}
+.pcard.prop svg{overflow:visible}
+.pe{fill:var(--page);stroke:var(--page);stroke-width:17;stroke-linejoin:round;stroke-linecap:round}
+.pi{fill:var(--page);stroke:#1a1816;stroke-width:6;stroke-linejoin:round;stroke-linecap:round}
+.dk{fill:#1a1816}
+.tx{fill:#1a1816;font:500 21px "Noto Sans TC","PingFang TC",sans-serif;letter-spacing:.08em}
+.chalk{fill:none;stroke:#1a1816;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
+.num{fill:#1a1816;font:500 30px "Noto Sans TC",sans-serif;text-anchor:middle}
+.lampglow{position:absolute;left:0;top:0;width:100%;height:100%;transition:filter .5s}
+.lampglow *{fill:var(--page);stroke:#1a1816;stroke-width:4}
+.stage:not([data-time="night"]) .lampglow{filter:var(--lit)}
+.stage[data-time="night"] .lampglow{filter:drop-shadow(0 0 7px #ffd35a) drop-shadow(0 0 22px rgba(255,190,70,.95))}
+.stage[data-time="night"] .lampglow *{fill:#ffe28a;stroke:#b98422}
+@keyframes hop{
+  0%{transform:none}
+  16%{transform:scale(1.13,.8)}
+  46%{transform:translateY(-46px) scale(.93,1.09)}
+  70%{transform:translateY(0) scale(1.16,.78)}
+  86%{transform:scale(.97,1.05)}
+  100%{transform:none}
+}
+.girl{position:absolute;left:0;top:0;background:none;border:0;padding:0;pointer-events:auto;display:block;transform-origin:50% 100%}
+.girl img{display:block;width:100%}
+.girl.sway{animation:sway .75s ease-in-out}
+@keyframes sway{0%,100%{transform:none}22%{transform:rotate(-5deg)}52%{transform:rotate(4.5deg)}78%{transform:rotate(-2deg)}}
+.girl:focus-visible{outline:2px dashed #1a1816;outline-offset:2px;border-radius:14px}
+.pcard .egg{position:absolute;left:184px;top:198px;width:59px;pointer-events:auto}
+.pcard .sign{position:absolute;left:353px;top:73px;width:405px;display:block}
+.pcard .wire{position:absolute;left:0;top:0;width:1111px;height:260px;overflow:visible}
+.bulbs circle{fill:var(--page);stroke:#1a1816;stroke-width:3.5}
+.bulbs rect{fill:#1a1816}
+.bulbs{transition:filter .5s}
+.stage[data-time="night"] .bulbs{filter:drop-shadow(0 0 5px #ffd35a) drop-shadow(0 0 16px rgba(255,190,70,.9))}
+.stage[data-time="night"] .bulbs circle{fill:#ffe28a;stroke:#b98422}
+.stage:not([data-time="night"]) .bulbs{filter:var(--lit)}
+
+.seen .story b{margin-right:1em}
+.seen{text-wrap:balance}
+.wall-photo .frame{fill:#fff;stroke:#1a1816;stroke-width:4.5;stroke-linejoin:round}
+
+/* ── 手機直式：書放大到左右貼齊螢幕（場景兩側的留白裁掉），字和按鈕放大，可以左右滑翻頁 ── */
+@media (max-width:760px) and (orientation:portrait){
+  .stage{padding:48px 0 calc(20px + env(safe-area-inset-bottom))}
+  .hero-book{width:100%}
+  .pop{width:118vw;margin-left:-9vw}
+  .seen{display:block;margin-top:12px;padding:0 24px;min-height:5.6em;font-size:13.5px;letter-spacing:.08em;line-height:1.7}
+  .seen .story b{display:block;margin:0 0 3px;font-size:17px;letter-spacing:.14em}
+  .pager{margin-top:8px;gap:2px}
+  .pages{gap:7px}
+  .pages button{min-width:38px;height:38px;font-size:15px}
+  .arrow{width:44px}
+  .times{margin-top:16px;gap:18px}
+  .times .dot{width:16px;position:relative}
+  .times .dot::after{content:"";position:absolute;inset:-14px}
+  .times .now{font-size:13px}
+  .replay{font-size:13px;padding:8px 16px 9px 18px}
+}
+/* ── 手機橫式：書在左，文字和按鈕在右 ── */
+@media (max-height:520px) and (orientation:landscape){
+  .stage{padding:6px 0}
+  .clock{display:none}
+  .hero-book{width:100%;display:grid;grid-template-columns:auto minmax(190px,1fr);align-content:center;align-items:center;column-gap:6px;
+    padding:0 max(14px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left))}
+  .pop{grid-row:1 / span 3;width:min(66vw, (100vh - 12px) * 1500 / 1070);width:min(66vw, (100svh - 12px) * 1500 / 1070)}
+  .seen{display:block;align-self:end;margin:0;padding:0;min-height:0;font-size:12.5px;letter-spacing:.06em}
+  .seen .story b{display:block;margin:0 0 3px;font-size:15px}
+  .pager{margin-top:10px;gap:2px}
+  .pages{gap:5px}
+  .pages button{min-width:34px;height:34px}
+  .arrow{width:38px}
+  .times{align-self:start;margin-top:10px}
+}
+
+/* ── 社群版型：?format=reel（9:16）｜post（4:5）｜square（1:1）。固定 1080 寬的畫布，整個縮放到視窗裡 ── */
+.fm{display:none}
+body.fmt{background:#0c0c0e;overflow:hidden;height:100vh}
+body.fmt .stage{position:absolute;left:50%;top:50%;width:var(--fw);height:var(--fh);min-height:0;padding:0;display:block;
+  transform:translate(-50%,-50%) scale(var(--fk,1))}
+body.fmt :is(.clock,.pager,.times,.seen){display:none}
+body.fmt .fm:not([hidden]){display:block}
+body.fmt .hero-book{position:absolute;inset:0;width:auto}
+body.fmt .pop{position:absolute;left:50%;top:var(--pt);width:var(--pw);margin-left:calc(var(--pw) / -2)}
+.stage[data-format="reel"]{--pw:1250px;--pt:452px;--ht:262px;--tt:1372px}
+.stage[data-format="post"]{--pw:1230px;--pt:212px;--ht:78px;--tt:1124px}
+.stage[data-format="square"]{--pw:1180px;--pt:34px;--tt:898px}
+.fm-head{position:absolute;left:60px;right:60px;top:var(--ht);text-align:center}
+.fm-no{display:block;font-size:24px;letter-spacing:.42em;text-indent:.42em;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.fm-title{margin:16px 0 0;font-size:62px;font-weight:500;letter-spacing:.14em;text-indent:.14em;line-height:1.3;color:var(--ink)}
+.fm-text{position:absolute;left:120px;right:120px;top:var(--tt);margin:0;text-align:center;font-size:37px;line-height:1.75;letter-spacing:.1em;color:var(--ink);text-wrap:balance}
+.stage[data-format="post"] .fm-title{font-size:56px;margin-top:10px}
+.stage[data-format="post"] .fm-text{font-size:34px}
+body.fmt .stage[data-format="square"] .fm-head{display:none}
+.stage[data-format="square"] .fm-text{font-size:32px;left:90px;right:90px}
+body.fmt .stage:not([data-format="square"]) .wall-ttl{display:none}      /* 上面已經有大標題，牆上那行就不重複 */
+/* &guide=1：安全區參考線（平台的介面會蓋住的地方），只給排版時看，輸出時不要加 */
+.fm-guide{position:absolute;inset:0;z-index:9;pointer-events:none;font-size:22px;letter-spacing:.08em;color:#c8321e}
+.fm-guide i{position:absolute;font-style:normal;display:grid;place-items:center;text-align:center;
+  background:repeating-linear-gradient(135deg,rgba(200,50,30,.2) 0 10px,rgba(200,50,30,.07) 10px 20px);outline:2px dashed rgba(200,50,30,.7);outline-offset:-2px}
+.fm-guide i.crop{background:none;place-items:end center;padding-bottom:8px}
+@media (prefers-reduced-motion:reduce){
+  .work.hop > *,.girl.sway,.egg.found,.work:is(:hover,:focus-visible){animation:none}
+  .lit,.glow,.spill,.stage{transition:none}
+}
